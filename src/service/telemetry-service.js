@@ -51,8 +51,6 @@ class TelemetryService {
         if (message.events.length > 0) {
             for (let element of message.events) {
                 let data = JSON.stringify(element);
-
-               
                 if (this.config.localStorageEnabled === 'true' || this.config.telemetryProxyEnabled === 'true') {
                     if (this.config.localStorageEnabled === 'true' && this.config.telemetryProxyEnabled !== 'true') {
                         // Store locally and respond back with proper status code
