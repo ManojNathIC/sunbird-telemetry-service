@@ -18,7 +18,7 @@ class TelemetryService {
         message.pid = req.get('x-app-id');
         if (!message.mid) message.mid = uuidv1();
         message.syncts = new Date().getTime();
-        const data = JSON.stringify(message);
+        const data = JSON.stringify(message); 
         if (this.config.localStorageEnabled === 'true' || this.config.telemetryProxyEnabled === 'true') {
             if (this.config.localStorageEnabled === 'true' && this.config.telemetryProxyEnabled !== 'true') {
                 // Store locally and respond back with proper status code
@@ -40,6 +40,43 @@ class TelemetryService {
             this.sendError(res, { id: 'api.telemetry', params: { err: 'Configuration error' } });
         }
     }
+
+     dispatchV2(req, res) {
+        const message = req.body;
+        message.did = req.get('x-device-id');
+        message.channel = req.get('x-channel-id');
+        message.pid = req.get('x-app-id');
+        if (!message.mid) message.mid = uuidv1();
+        message.syncts = new Date().getTime();
+         if (message.events.length > 0) {
+             for (let element of message.events) {
+                let data =JSON.stringify(element);
+                if (this.config.localStorageEnabled === 'true' || this.config.telemetryProxyEnabled === 'true') {
+                    if (this.config.localStorageEnabled === 'true' && this.config.telemetryProxyEnabled !== 'true') {
+                        // Store locally and respond back with proper status code
+                         this.dispatcher.dispatch(element.mid, data, this.getRequestCallBack(req, res));
+                    } else if (this.config.localStorageEnabled === 'true' && this.config.telemetryProxyEnabled === 'true') {
+                        // Store locally and proxy to the specified URL. If the proxy fails ignore the error as the local storage is successful. Do a sync later
+                        const options = this.getProxyRequestObj(req, data);
+                        request.post(options, (err, data) => {
+                            if (err) console.error('Proxy failed:', err);
+                            else console.log('Proxy successful!  Server responded with:', data.body);
+                        });
+                       
+                        this.dispatcher.dispatch(message.mid, data ,  this.getRequestCallBack(req, res));
+                      
+                    } else if (this.config.localStorageEnabled !== 'true' && this.config.telemetryProxyEnabled === 'true') {
+                        // Just proxy
+                        const options = this.getProxyRequestObj(req, data);
+                       
+                        request.post(options, this.getRequestCallBack(req, res));
+                    }
+                } else {
+                    this.sendError(res, { id: 'api.telemetry', params: { err: 'Configuration error' } });
+                }
+            } 
+        }
+    }
     health(req, res) {
         if (this.config.localStorageEnabled === 'true') {
             this.dispatcher.health((healthy) => {
@@ -54,8 +91,8 @@ class TelemetryService {
             this.sendError(res, { id: 'api.health', params: { err: 'Configuration error' } });
         }
     }
-    getRequestCallBack(req, res) {
-        return (err, data) => {
+     getRequestCallBack(req, res) {
+         return (err, data) => {
             if (err) {
                 console.log('error', err);
                 this.sendError(res, { id: 'api.telemetry', params: { err: err } });
@@ -76,7 +113,7 @@ class TelemetryService {
         res.status(500);
         res.json(resObj);
     }
-    sendSuccess(res, options) {
+     sendSuccess(res, options) {
         const resObj = {
             id: options.id,
             ver: options.ver || '1.0',
@@ -85,7 +122,9 @@ class TelemetryService {
             responseCode: options.responseCode || 'SUCCESS'
         }
         res.status(200);
-        res.json(resObj);
+        res.json(resObj)
+       
+       
     }
     getProxyRequestObj(req, data) {
         const headers = { 'authorization': 'Bearer ' + config.proxyAuthKey };
